@@ -10,50 +10,59 @@
 
   <script>
     const LIFF_ID = "2010723399-tGSQaLyq";
-    const EXPERIENCE_URL = "https://line.me/R/ti/p/@your_official_account_id"; // 後で本物のURLに差し替え
+const EXPERIENCE_URL = "https://line.me/R/ti/p/@your_official_account_id";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
 
-    // ★ここに、GASのWebアプリURL(以前デプロイしたもの)を入れてください
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
+async function main() {
+  const status = document.getElementById("status");
+  try {
+    status.innerText = "LIFF初期化中…";
+    await liff.init({ liffId: LIFF_ID });
 
-    async function main() {
-      await liff.init({ liffId: LIFF_ID });
-
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
-
-      const params = new URLSearchParams(window.location.search);
-      const agencyId = params.get("agency");
-
-      if (!agencyId) {
-        document.getElementById("status").innerText = "代理店情報が見つかりません。";
-        return;
-      }
-
-      const profile = await liff.getProfile();
-      const userId = profile.userId;
-
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ userId: userId, agencyId: agencyId })
-      });
-      const result = await res.json();
-
-      if (result.error) {
-        document.getElementById("status").innerText = "エラー: " + result.error;
-        return;
-      }
-
-      document.getElementById("status").innerText = "体験ページへ移動します…";
-
-      setTimeout(() => {
-        location.href = EXPERIENCE_URL;
-      }, 800);
+    status.innerText = "ログイン確認中…";
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
     }
 
-    main();
+    status.innerText = "パラメータ確認中…";
+    const params = new URLSearchParams(window.location.search);
+    const agencyId = params.get("agency");
+
+    if (!agencyId) {
+      status.innerText = "代理店情報が見つかりません。(URLに?agency=xxxが必要です)";
+      return;
+    }
+
+    status.innerText = "プロフィール取得中…";
+    const profile = await liff.getProfile();
+    const userId = profile.userId;
+
+    status.innerText = "サーバーに送信中…";
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ userId: userId, agencyId: agencyId })
+    });
+    const result = await res.json();
+
+    if (result.error) {
+      status.innerText = "サーバーエラー: " + result.error;
+      return;
+    }
+
+    status.innerText = "体験ページへ移動します…";
+    setTimeout(() => {
+      location.href = EXPERIENCE_URL;
+    }, 800);
+
+  } catch (err) {
+    status.innerText = "エラーが発生しました: " + err.message;
+    console.error(err);
+  }
+}
+
+main();
   </script>
 </body>
 </html>
