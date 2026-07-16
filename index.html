@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <p id="status">読み込み中です…</p>
+
+  <script>
+    const LIFF_ID = "2010723399-tGSQaLyq";
+    const EXPERIENCE_URL = "https://line.me/R/ti/p/@your_official_account_id"; // 後で本物のURLに差し替え
+
+    // ★ここに、GASのWebアプリURL(以前デプロイしたもの)を入れてください
+    const GAS_URL = "https://script.google.com/a/macros/playbit.co.jp/s/xxxxxxxxx/exec";
+
+    async function main() {
+      await liff.init({ liffId: LIFF_ID });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const agencyId = params.get("agency");
+
+      if (!agencyId) {
+        document.getElementById("status").innerText = "代理店情報が見つかりません。";
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      const userId = profile.userId;
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ userId: userId, agencyId: agencyId })
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        document.getElementById("status").innerText = "エラー: " + result.error;
+        return;
+      }
+
+      document.getElementById("status").innerText = "体験ページへ移動します…";
+
+      setTimeout(() => {
+        location.href = EXPERIENCE_URL;
+      }, 800);
+    }
+
+    main();
+  </script>
+</body>
+</html>
