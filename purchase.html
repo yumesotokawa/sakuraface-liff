@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <p id="status">読み込み中です…</p>
+
+  <script>
+    const LIFF_ID = "2010723399-rSNVQ8OT";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
+    const PRODUCT_URL = "https://shop.sakuraface.com/collections/essence-eye-mask";
+    const SHOP_DOMAIN = "shop.sakuraface.com"; // ディスカウントURLの組み立てに使用
+
+    async function main() {
+      const status = document.getElementById("status");
+      try {
+        status.innerText = "LIFF初期化中…";
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        status.innerText = "情報を確認中…";
+        const profile = await liff.getProfile();
+        const userId = profile.userId;
+
+        // GASにuserIdで問い合わせ(GET)
+        const res = await fetch(GAS_URL + "?userId=" + encodeURIComponent(userId));
+        const result = await res.json();
+
+        if (result.error || !result.couponCode) {
+          // 代理店情報が見つからない場合は、クーポンなしで通常の商品ページへ
+          status.innerText = "商品ページへ移動します…";
+          location.href = PRODUCT_URL;
+          return;
+        }
+
+        // クーポン付きのURLを組み立てて自動適用
+        const discountUrl = "https://" + SHOP_DOMAIN + "/discount/" + encodeURIComponent(result.couponCode)
+          + "?redirect=" + encodeURIComponent(PRODUCT_URL.replace("https://" + SHOP_DOMAIN, ""));
+
+        status.innerText = "商品ページへ移動します…";
+        location.href = discountUrl;
+
+      } catch (err) {
+        status.innerText = "エラーが発生しました: " + err.message;
+        console.error(err);
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
