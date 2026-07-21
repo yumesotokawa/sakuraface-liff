@@ -6,9 +6,75 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <p id="status">読み込み中です…</p>
+  <div id="intro" style="padding: 24px; font-family: sans-serif; line-height: 1.8;">
+    <p>この後、LINEの認証画面が表示されます。</p>
+    <p>取得する情報は、お名前(LINEの表示名)の確認のみです。<br>
+    電話番号やトーク内容などは取得いたしませんので、ご安心ください。</p>
+    <button id="startBtn" style="margin-top: 16px; padding: 12px 24px; font-size: 16px; background:#333; color:#fff; border:none; border-radius: 6px;">利用を開始する</button>
+  </div>
+  <p id="status" style="display:none; padding: 24px; font-family: sans-serif;">読み込み中です…</p>
 
   <script>
+    const LIFF_ID = "2010723399-tGSQaLyq";
+    const EXPERIENCE_URL = "https://line.me/R/ti/p/@875ojvew";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
+
+    document.getElementById("startBtn").addEventListener("click", () => {
+      document.getElementById("intro").style.display = "none";
+      document.getElementById("status").style.display = "block";
+      main();
+    });
+
+    async function main() {
+      const status = document.getElementById("status");
+      try {
+        status.innerText = "LIFF初期化中…";
+        await liff.init({ liffId: LIFF_ID });
+
+        status.innerText = "ログイン確認中…";
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        status.innerText = "パラメータ確認中…";
+        const params = new URLSearchParams(window.location.search);
+        const agencyId = params.get("agency");
+
+        if (!agencyId) {
+          status.innerText = "代理店情報が見つかりません。(URLに?agency=xxxが必要です)";
+          return;
+        }
+
+        status.innerText = "プロフィール取得中…";
+        const profile = await liff.getProfile();
+        const userId = profile.userId;
+
+        status.innerText = "サーバーに送信中…";
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ userId: userId, agencyId: agencyId })
+        });
+        const result = await res.json();
+
+        if (result.error) {
+          status.innerText = "サーバーエラー: " + result.error;
+          return;
+        }
+
+        status.innerText = "体験ページへ移動します…";
+        setTimeout(() => {
+          location.href = EXPERIENCE_URL;
+        }, 800);
+
+      } catch (err) {
+        status.innerText = "エラーが発生しました: " + err.message;
+        console.error(err);
+      }
+    }
+  </script>
+</body>
     const LIFF_ID = "2010723399-tGSQaLyq";
 const EXPERIENCE_URL = "https://line.me/R/ti/p/@875ojvew";
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
