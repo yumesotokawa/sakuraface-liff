@@ -1,58 +1,73 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;
+    }
+    #status { text-align: center; font-size: 16px; line-height: 1.6; color: #333; word-break: break-all; }
+  </style>
 </head>
 <body>
   <p id="status">読み込み中です…</p>
-
   <script>
     const LIFF_ID = "2010723399-rSNVQ8OT";
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs0pLGl_U-2edz6UUAD9kEq9pO0hlQVRXBhj7C8W8TZOyMQ8dUpPOCJeh9td0nARTPkw/exec";
-    const PRODUCT_URL = "https://shop.sakuraface.com/collections/essence-eye-mask";
-    const SHOP_DOMAIN = "shop.sakuraface.com"; // ディスカウントURLの組み立てに使用
+    const SHOP_DOMAIN = "https://shop.sakuraface.com";
+    const PRODUCT_PATH = "/collections/essence-eye-mask";
 
     async function main() {
       const status = document.getElementById("status");
       try {
-        status.innerText = "LIFF初期化中…";
         await liff.init({ liffId: LIFF_ID });
 
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
         status.innerText = "情報を確認中…";
         const profile = await liff.getProfile();
-        const userId = profile.userId;
 
-        // GASにuserIdで問い合わせ(GET)
-        const res = await fetch(GAS_URL + "?userId=" + encodeURIComponent(userId));
-        const result = await res.json();
+        const res = await fetch(
+          GAS_URL + "?userId=" + encodeURIComponent(profile.userId),
+          { redirect: "follow" }
+        );
 
-        if (result.error || !result.couponCode) {
-          // 代理店情報が見つからない場合は、クーポンなしで通常の商品ページへ
-          status.innerText = "商品ページへ移動します…";
-          location.href = PRODUCT_URL;
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (e) {
+          status.innerText = "応答が不正です:\n" + text.slice(0, 150);
           return;
         }
 
-        // クーポン付きのURLを組み立てて自動適用
-        const discountUrl = "https://" + SHOP_DOMAIN + "/discount/" + encodeURIComponent(result.couponCode)
-          + "?redirect=" + encodeURIComponent(PRODUCT_URL.replace("https://" + SHOP_DOMAIN, ""));
+        let targetUrl;
+        if (result.error || !result.couponCode) {
+          targetUrl = SHOP_DOMAIN + PRODUCT_PATH;
+        } else {
+          targetUrl = SHOP_DOMAIN + "/discount/" + encodeURIComponent(result.couponCode)
+            + "?redirect=" + encodeURIComponent(PRODUCT_PATH);
+        }
 
         status.innerText = "商品ページへ移動します…";
-        location.href = discountUrl;
+        if (liff.isInClient()) {
+          liff.openWindow({ url: targetUrl, external: true });
+        } else {
+          location.href = targetUrl;
+        }
 
       } catch (err) {
-        status.innerText = "エラーが発生しました: " + err.message;
+        status.innerText = "エラーが発生しました:\n" + (err.message || err);
         console.error(err);
       }
     }
-
     main();
   </script>
 </body>
