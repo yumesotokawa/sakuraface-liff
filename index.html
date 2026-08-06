@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
@@ -12,7 +12,7 @@
     電話番号やトーク内容などは取得いたしませんので、ご安心ください。</p>
     <button id="startBtn" style="margin-top: 16px; padding: 12px 24px; font-size: 16px; background:#333; color:#fff; border:none; border-radius: 6px;">利用を開始する</button>
   </div>
-  <p id="status" style="display:none; padding: 24px; font-family: sans-serif;">読み込み中です…</p>
+  <p id="status" style="display:none; padding: 24px; font-family: sans-serif; line-height:1.6; word-break:break-all;">読み込み中です…</p>
 
   <script>
     const LIFF_ID = "2010723399-tGSQaLyq";
@@ -23,7 +23,7 @@
     const statusEl = document.getElementById("status");
 
     document.getElementById("startBtn").addEventListener("click", () => {
-      liff.login();
+      liff.login({ redirectUri: window.location.href });
     });
 
     init();
@@ -31,46 +31,49 @@
     async function init() {
       try {
         await liff.init({ liffId: LIFF_ID });
-
         if (!liff.isLoggedIn()) {
           introEl.style.display = "block";
           statusEl.style.display = "none";
           return;
         }
-
         introEl.style.display = "none";
         statusEl.style.display = "block";
         await proceed();
-
       } catch (err) {
         statusEl.style.display = "block";
-        statusEl.innerText = "エラーが発生しました: " + err.message;
+        statusEl.innerText = "エラーが発生しました: " + (err.message || err);
         console.error(err);
       }
     }
 
     async function proceed() {
       try {
-        statusEl.innerText = "パラメータ確認中…";
         const params = new URLSearchParams(window.location.search);
         const agencyId = params.get("agency");
 
         if (!agencyId) {
-          statusEl.innerText = "代理店情報が見つかりません。(URLに?agency=xxxが必要です)";
+          statusEl.innerText = "代理店情報が見つかりません。\n(URLに ?agency=xxxx が必要です)";
           return;
         }
 
-        statusEl.innerText = "プロフィール取得中…";
+        statusEl.innerText = "情報を確認中…";
         const profile = await liff.getProfile();
-        const userId = profile.userId;
 
-        statusEl.innerText = "サーバーに送信中…";
         const res = await fetch(GAS_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ userId: userId, agencyId: agencyId })
+          body: JSON.stringify({ userId: profile.userId, agencyId: agencyId }),
+          redirect: "follow"
         });
-        const result = await res.json();
+
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (e) {
+          statusEl.innerText = "応答が不正です:\n" + text.slice(0, 150);
+          return;
+        }
 
         if (result.error) {
           statusEl.innerText = "サーバーエラー: " + result.error;
@@ -83,7 +86,7 @@
         }, 800);
 
       } catch (err) {
-        statusEl.innerText = "エラーが発生しました: " + err.message;
+        statusEl.innerText = "エラーが発生しました: " + (err.message || err);
         console.error(err);
       }
     }
